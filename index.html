@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prose — AI Writing Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #F4141E;
+    --magenta: #CA2172;
+    --orange: #FE5900;
+    --bg: #FAFAF9;
+    --surface: #FFFFFF;
+    --border: #E8E6E0;
+    --text-primary: #1A1A18;
+    --text-secondary: #6B6B66;
+    --text-muted: #9B9B96;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  /* SETUP SCREEN */
+  #setupScreen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    padding: 2rem;
+  }
+  .setup-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2.5rem 2rem;
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+  }
+  .setup-logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 32px;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .setup-logo-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); display: inline-block; }
+  .setup-subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 1.5rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  .setup-steps { text-align: left; background: var(--bg); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 1.5rem; }
+  .setup-steps p { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; padding-left: 22px; position: relative; line-height: 1.5; }
+  .setup-steps p:last-child { margin-bottom: 0; }
+  .setup-steps p::before { content: attr(data-n); position: absolute; left: 0; color: var(--red); font-weight: 500; }
+  .setup-steps a { color: var(--red); text-decoration: none; }
+  .setup-steps a:hover { text-decoration: underline; }
+  .setup-label { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px; }
+  .setup-input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: monospace; color: var(--text-primary); background: var(--bg); margin-bottom: 8px; transition: border-color 0.15s; }
+  .setup-input:focus { outline: none; border-color: var(--red); }
+  .setup-hint { text-align: left; font-size: 12px; color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.6; }
+  .btn-setup { width: 100%; padding: 13px; background: var(--red); color: white; border: none; border-radius: var(--radius-sm); font-size: 15px; font-family: 'DM Sans', sans-serif; font-weight: 500; cursor: pointer; transition: background 0.15s; }
+  .btn-setup:hover { background: #D40F18; }
+  .setup-error { color: #A32D2D; font-size: 13px; margin-top: 10px; display: none; background: #FCEBEB; padding: 10px 12px; border-radius: var(--radius-sm); text-align: left; }
+
+  /* HEADER */
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; }
+  .logo { font-family: 'DM Serif Display', serif; font-size: 22px; display: flex; align-items: center; gap: 8px; }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); display: inline-block; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .header-tag { font-size: 12px; color: var(--text-muted); font-weight: 300; letter-spacing: 0.05em; text-transform: uppercase; }
+  .btn-link { padding: 5px 12px; border: 1px solid var(--border); border-radius: 100px; background: transparent; font-size: 12px; font-family: 'DM Sans', sans-serif; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+  .btn-link:hover { border-color: var(--red); color: var(--red); }
+
+  /* LAYOUT */
+  .app { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .controls-bar { grid-column: 1 / -1; display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; }
+  .control-group { display: flex; flex-direction: column; gap: 5px; min-width: 140px; }
+  .ctrl-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: 500; }
+  select { appearance: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 32px 9px 12px; font-size: 14px; font-family: 'DM Sans', sans-serif; color: var(--text-primary); cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B6B66' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; width: 100%; }
+  select:focus { outline: none; border-color: var(--red); }
+  .tone-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 240px; }
+  .tone-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { padding: 8px 18px; border-radius: 100px; border: 1.5px solid var(--border); background: var(--surface); font-size: 13px; font-family: 'DM Sans', sans-serif; color: var(--text-secondary); cursor: pointer; transition: all 0.15s; white-space: nowrap; user-select: none; }
+  .chip:hover { border-color: var(--red); color: var(--red); background: #fff5f5; }
+  .chip.active { background: var(--red); border-color: var(--red); color: white; }
+
+  /* PANELS */
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; overflow: hidden; }
+  .panel-header { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .panel-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: 500; }
+  .char-count { font-size: 12px; color: var(--text-muted); }
+  textarea { flex: 1; border: none; padding: 16px; font-size: 14px; font-family: 'DM Sans', sans-serif; color: var(--text-primary); background: transparent; resize: none; line-height: 1.7; min-height: 240px; }
+  textarea::placeholder { color: var(--text-muted); }
+  textarea:focus { outline: none; }
+  .context-row { padding: 10px 16px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .context-row label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+  .context-row input { flex: 1; border: none; background: transparent; font-size: 13px; font-family: 'DM Sans', sans-serif; color: var(--text-secondary); }
+  .context-row input:focus { outline: none; }
+  .context-row input::placeholder { color: var(--text-muted); }
+  .generate-wrap { padding: 12px 16px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .btn-generate { width: 100%; padding: 12px; background: var(--red); color: white; border: none; border-radius: var(--radius-sm); font-size: 14px; font-family: 'DM Sans', sans-serif; font-weight: 500; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn-generate:hover { background: #D40F18; }
+  .btn-generate:disabled { background: #ccc; cursor: not-allowed; }
+  .loading-bar { height: 2px; background: linear-gradient(90deg, var(--red), var(--orange), var(--magenta)); background-size: 200% 100%; animation: shimmer 1.2s ease infinite; }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .output-tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 16px; flex-shrink: 0; }
+  .tab { padding: 12px 16px 11px; font-size: 13px; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; margin-bottom: -1px; }
+  .tab:hover { color: var(--text-secondary); }
+  .tab.active { color: var(--red); border-bottom-color: var(--red); }
+  .output-content { flex: 1; padding: 16px; font-size: 14px; line-height: 1.8; color: var(--text-primary); white-space: pre-wrap; min-height: 240px; overflow-y: auto; }
+  .output-placeholder { color: var(--text-muted); font-style: italic; }
+  .output-actions { padding: 10px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; flex-shrink: 0; }
+  .btn-sm { padding: 7px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); font-size: 12px; font-family: 'DM Sans', sans-serif; color: var(--text-secondary); cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 5px; }
+  .btn-sm:hover { border-color: var(--red); color: var(--red); }
+  .btn-sm.success { border-color: #2D8A5F; color: #2D8A5F; background: #EAF5EF; }
+  .history-section { grid-column: 1 / -1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .history-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .history-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: 500; }
+  .history-list { display: flex; gap: 8px; flex-wrap: wrap; }
+  .history-item { padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; color: var(--text-secondary); cursor: pointer; transition: all 0.15s; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .history-item:hover { border-color: var(--red); color: var(--red); }
+  .lang-pill { padding: 0 16px 8px; display: none; }
+  .status-pill { padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 500; background: #FFF3E0; color: #C47C00; }
+  .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 680px) { .app { grid-template-columns: 1fr; padding: 1rem; } .tone-group { min-width: 100%; } .control-group { min-width: 100%; } }
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+<div id="setupScreen">
+  <div class="setup-card">
+    <div class="setup-logo"><span class="setup-logo-dot"></span>Prose</div>
+    <div class="setup-subtitle">AI Writing Assistant — Setup</div>
+    <div class="setup-steps">
+      <p data-n="1.">Go to <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com/settings/keys</a></p>
+      <p data-n="2.">Click <strong>+ Create key</strong>, name it "prose", click Create.</p>
+      <p data-n="3.">Copy the full key that appears (starts with sk-ant-).</p>
+      <p data-n="4.">Paste it below and click Save.</p>
+    </div>
+    <div class="setup-label">Your Anthropic API Key</div>
+    <input class="setup-input" type="text" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off" spellcheck="false" />
+    <div class="setup-hint">Your key is saved only in this browser. It is never stored anywhere else.</div>
+    <button class="btn-setup" onclick="saveApiKey()">Save and open Prose</button>
+    <div class="setup-error" id="setupError"></div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo"><span class="logo-dot"></span>Prose</div>
+  <div class="header-right">
+    <span class="header-tag">AI Writing Assistant</span>
+    <button class="btn-link" onclick="showSetup()">API Key settings</button>
+  </div>
+</header>
+
+<!-- APP -->
+<div class="app">
+  <div class="controls-bar">
+    <div class="control-group">
+      <span class="ctrl-label">Message type</span>
+      <select id="msgType">
+        <option value="email">Email</option>
+        <option value="teams">Teams message</option>
+        <option value="reply">Short reply</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <span class="ctrl-label">Audience</span>
+      <select id="audience">
+        <option value="executive">Executive / CHRO</option>
+        <option value="boss">Direct manager</option>
+        <option value="hrbp">HRBP / Peer</option>
+        <option value="team">Team member</option>
+        <option value="general">General</option>
+      </select>
+    </div>
+    <div class="tone-group">
+      <span class="ctrl-label">Tone</span>
+      <div class="tone-chips" id="toneChips">
+        <button class="chip active" data-tone="formal" type="button">Formal</button>
+        <button class="chip" data-tone="semiformal" type="button">Semi-formal</button>
+        <button class="chip" data-tone="direct" type="button">Direct</button>
+        <button class="chip" data-tone="warm" type="button">Warm</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Your rough draft</span>
+      <span class="char-count" id="charCount">0 chars</span>
+    </div>
+    <textarea id="inputText" placeholder="Write your rough ideas here. English or Spanish is fine. Don't worry about grammar or structure."></textarea>
+    <div class="context-row">
+      <label for="objective">Objective:</label>
+      <input type="text" id="objective" placeholder="e.g. Follow up on policy update, Request approval..." />
+    </div>
+    <div class="lang-pill" id="langPill">
+      <span class="status-pill">Spanish detected — will translate to English</span>
+    </div>
+    <div class="generate-wrap">
+      <button class="btn-generate" id="generateBtn" type="button" onclick="generateMessage()">
+        <span id="btnLabel">Rewrite professionally</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div id="loadingBar" style="display:none;" class="loading-bar"></div>
+    <div class="output-tabs">
+      <div class="tab active" id="tab1" onclick="switchTab(1)">Version 1</div>
+      <div class="tab" id="tab2" onclick="switchTab(2)">Version 2</div>
+    </div>
+    <div class="output-content" id="outputContent">
+      <span class="output-placeholder">Your professional version will appear here. Both versions will be ready to copy into Outlook or Teams.</span>
+    </div>
+    <div class="output-actions">
+      <button class="btn-sm" id="copyBtn" type="button" onclick="copyOutput()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="4" y="4" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M1 8V1.5A.5.5 0 011.5 1H8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Copy
+      </button>
+      <button class="btn-sm" type="button" onclick="clearAll()">Clear all</button>
+    </div>
+  </div>
+
+  <div class="history-section" id="historySection" style="display:none;">
+    <div class="history-header">
+      <span class="history-title">Recent messages</span>
+      <button class="btn-sm" type="button" onclick="clearHistory()">Clear history</button>
+    </div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+</div>
+
+<script>
+// ── CORS proxy list — tries each one until one works ──
+const PROXIES = [
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+];
+const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+
+const SYSTEM_PROMPT = `You are a professional business writing assistant for an HR Director in the United States who communicates daily with executives, HRBPs, and teams.
+
+Rewrite the rough draft as a polished, professional message.
+
+RULES:
+- Clear and simple language
+- Short, direct sentences
+- Active voice
+- Use "you" to address the reader
+- No dashes of any kind
+- No semicolons
+- No markdown or asterisks
+- No bullet points in emails
+- No unnecessary adjectives
+- No cliches or metaphors
+- Never use: can, maybe, only, really, literally, certainly, probably, basically, remember, significantly, transform, dear, shed light, boundaries, empower, challenge, danger, unlock, discover, skyrocket, revolutionize, disruptive, pioneer, innovative, illuminate, reveal, vibrant, vital, crucial, furthermore, scope, however, leverage, navigate, landscape, notable, testament, powerful, concerns, ever evolving
+
+FORMAT:
+- Email: subject line + opening + body + closing with [Your name]
+- Teams: shorter, no subject line
+- Short reply: 1 to 3 sentences only
+
+Return ONLY this JSON, nothing else before or after:
+{"version1":"...","version2":"...","subject":"subject if email else empty"}`;
+
+let currentTone = 'formal';
+let version1Text = '';
+let version2Text = '';
+let activeTab = 1;
+let msgHistory = [];
+try { msgHistory = JSON.parse(localStorage.getItem('prose_history') || '[]'); } catch(e) {}
+
+function getApiKey() { return localStorage.getItem('prose_key') || ''; }
+
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  const err = document.getElementById('setupError');
+  if (!key || key.length < 20) {
+    err.textContent = 'Please paste your full API key. It starts with sk-ant-';
+    err.style.display = 'block';
+    return;
+  }
+  err.style.display = 'none';
+  localStorage.setItem('prose_key', key);
+  document.getElementById('setupScreen').style.display = 'none';
+}
+
+function showSetup() {
+  const k = getApiKey();
+  if (k) document.getElementById('apiKeyInput').value = k;
+  document.getElementById('setupScreen').style.display = 'flex';
+}
+
+function switchTab(n) {
+  activeTab = n;
+  document.getElementById('tab1').classList.toggle('active', n === 1);
+  document.getElementById('tab2').classList.toggle('active', n === 2);
+  const txt = n === 1 ? version1Text : version2Text;
+  if (txt) document.getElementById('outputContent').textContent = txt;
+}
+
+async function callAnthropic(apiKey, body) {
+  // First try direct call
+  try {
+    const res = await fetch(ANTHROPIC_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify(body)
+    });
+    if (res.ok) return await res.json();
+    const errData = await res.json().catch(() => ({}));
+    // If 401, key is wrong — don't try proxies
+    if (res.status === 401) throw new Error('INVALID_KEY');
+    // For CORS errors we get status 0 or opaque — fall through to proxies
+    if (res.status !== 0) throw new Error(errData.error?.message || 'API error ' + res.status);
+  } catch(e) {
+    if (e.message === 'INVALID_KEY') throw e;
+    // CORS block — try proxies
+  }
+
+  // Try CORS proxies
+  for (const makeProxy of PROXIES) {
+    try {
+      const proxyUrl = makeProxy(ANTHROPIC_URL);
+      const res = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) return await res.json();
+    } catch(e) { continue; }
+  }
+  throw new Error('CONNECTION_FAILED');
+}
+
+async function generateMessage() {
+  const apiKey = getApiKey();
+  if (!apiKey) { showSetup(); return; }
+
+  const inputEl = document.getElementById('inputText');
+  const rawText = inputEl.value.trim();
+  if (!rawText) { inputEl.focus(); return; }
+
+  const msgType = document.getElementById('msgType').value;
+  const audience = document.getElementById('audience').value;
+  const objective = document.getElementById('objective').value.trim();
+  const outputEl = document.getElementById('outputContent');
+  const btn = document.getElementById('generateBtn');
+  const btnLabel = document.getElementById('btnLabel');
+  const loadingBar = document.getElementById('loadingBar');
+
+  btn.disabled = true;
+  btnLabel.innerHTML = '<div class="spinner"></div>&nbsp;Writing...';
+  loadingBar.style.display = 'block';
+  outputEl.innerHTML = '<span class="output-placeholder">Generating your professional version...</span>';
+
+  const audienceMap = { executive:'Executive or CHRO (C-suite)', boss:'Direct manager', hrbp:'HRBP or peer', team:'Team member', general:'General audience' };
+  const toneMap = { formal:'Formal and polished', semiformal:'Semi-formal and approachable', direct:'Direct and concise', warm:'Warm and professional' };
+
+  const userPrompt = `MESSAGE TYPE: ${msgType}
+AUDIENCE: ${audienceMap[audience]}
+TONE: ${toneMap[currentTone]}
+${objective ? 'OBJECTIVE: ' + objective : ''}
+
+RAW DRAFT:
+${rawText}
+
+Return JSON only.`;
+
+  try {
+    const data = await callAnthropic(apiKey, {
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1200,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userPrompt }]
+    });
+
+    const raw = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
+    const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+
+    version1Text = parsed.subject ? 'Subject: ' + parsed.subject + '\n\n' + parsed.version1 : parsed.version1;
+    version2Text = parsed.subject ? 'Subject: ' + parsed.subject + '\n\n' + parsed.version2 : parsed.version2;
+
+    activeTab = 1;
+    document.getElementById('tab1').classList.add('active');
+    document.getElementById('tab2').classList.remove('active');
+    outputEl.textContent = version1Text;
+    saveToHistory(rawText, version1Text);
+
+  } catch(err) {
+    if (err.message === 'INVALID_KEY') {
+      outputEl.innerHTML = '<span style="color:#A32D2D;font-size:13px;">Your API key is not valid. Click "API Key settings" at the top right, clear the box, and paste your key again from console.anthropic.com.</span>';
+    } else {
+      outputEl.innerHTML = '<span style="color:#A32D2D;font-size:13px;">Connection failed. Make sure you have internet access and try again. Error: ' + err.message + '</span>';
+    }
+    console.error(err);
+  }
+
+  btn.disabled = false;
+  btnLabel.textContent = 'Rewrite professionally';
+  loadingBar.style.display = 'none';
+}
+
+function copyOutput() {
+  const text = activeTab === 1 ? version1Text : version2Text;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.classList.add('success');
+    btn.innerHTML = 'Copied!';
+    setTimeout(() => { btn.classList.remove('success'); btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="4" y="4" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M1 8V1.5A.5.5 0 011.5 1H8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg> Copy'; }, 1800);
+  });
+}
+
+function clearAll() {
+  document.getElementById('inputText').value = '';
+  document.getElementById('charCount').textContent = '0 chars';
+  document.getElementById('objective').value = '';
+  document.getElementById('langPill').style.display = 'none';
+  document.getElementById('outputContent').innerHTML = '<span class="output-placeholder">Your professional version will appear here.</span>';
+  version1Text = ''; version2Text = '';
+}
+
+function saveToHistory(raw, output) {
+  const item = { id: Date.now(), preview: raw.substring(0, 60) + (raw.length > 60 ? '...' : ''), raw, output };
+  msgHistory.unshift(item);
+  if (msgHistory.length > 10) msgHistory = msgHistory.slice(0, 10);
+  try { localStorage.setItem('prose_history', JSON.stringify(msgHistory)); } catch(e) {}
+  renderHistory();
+}
+
+function renderHistory() {
+  const section = document.getElementById('historySection');
+  const list = document.getElementById('historyList');
+  if (!msgHistory.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  list.innerHTML = msgHistory.map(item => `<div class="history-item" onclick="loadItem(${item.id})">${item.preview.replace(/</g,'&lt;')}</div>`).join('');
+}
+
+function loadItem(id) {
+  const item = msgHistory.find(h => h.id === id);
+  if (!item) return;
+  document.getElementById('inputText').value = item.raw;
+  version1Text = item.output;
+  document.getElementById('outputContent').textContent = item.output;
+  document.getElementById('charCount').textContent = item.raw.length + ' chars';
+}
+
+function clearHistory() {
+  msgHistory = [];
+  try { localStorage.removeItem('prose_history'); } catch(e) {}
+  renderHistory();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  if (getApiKey()) document.getElementById('setupScreen').style.display = 'none';
+  renderHistory();
+
+  document.getElementById('toneChips').addEventListener('click', function(e) {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    currentTone = chip.dataset.tone;
+  });
+
+  document.getElementById('inputText').addEventListener('input', function() {
+    document.getElementById('charCount').textContent = this.value.length + ' chars';
+    const spanish = /[áéíóúüñ¿¡]|(\b(quiero|necesito|hola|gracias|esto|para)\b)/i;
+    document.getElementById('langPill').style.display = spanish.test(this.value) ? 'block' : 'none';
+  });
+
+  document.getElementById('apiKeyInput').addEventListener('keydown', e => { if (e.key === 'Enter') saveApiKey(); });
+  document.getElementById('inputText').addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generateMessage(); });
+});
+</script>
+</body>
+</html>
